@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libro de Sueldo — Evolución vs. Inflación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper: #dde8da;
+    --paper-2: #eaf1e7;
+    --rule: #b7c8b1;
+    --ink: #1c2a20;
+    --ink-soft: #46584c;
+    --stamp: #a5372a;
+    --gain: #2e6b4d;
+    --gold: #b3823a;
+    --card-shadow: 0 1px 0 rgba(28,42,32,.06), 0 8px 20px -12px rgba(28,42,32,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(
+        transparent, transparent 27px, rgba(28,42,32,.05) 28px
+      ),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:0 0 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+  /* ---------- Masthead ---------- */
+  .masthead{
+    padding:36px 0 20px;
+    border-bottom:3px double var(--ink);
+    margin-bottom:28px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    align-items:flex-end;
+    justify-content:space-between;
+  }
+  .masthead h1{
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:2.35rem;
+    letter-spacing:.01em;
+    margin:0 0 4px;
+  }
+  .masthead .sub{
+    font-size:.92rem;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+  .masthead .meta{
+    display:flex; align-items:center; gap:10px; font-size:.85rem;
+  }
+  .meta label{color:var(--ink-soft);}
+  .meta input{
+    font-family:'IBM Plex Mono',monospace;
+    width:70px;
+    padding:4px 6px;
+    border:1px solid var(--rule);
+    background:var(--paper-2);
+    border-radius:3px;
+    font-size:.9rem;
+    color:var(--ink);
+  }
+  .actions{display:flex; gap:8px;}
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:.82rem;
+    border:1px solid var(--ink);
+    background:var(--paper-2);
+    color:var(--ink);
+    padding:8px 14px;
+    border-radius:3px;
+    cursor:pointer;
+    transition:transform .08s ease, background .15s ease;
+  }
+  button:hover{background:#fff;}
+  button:active{transform:translateY(1px);}
+  button.primary{background:var(--ink); color:var(--paper-2); border-color:var(--ink);}
+  button.primary:hover{background:#0f1811;}
+  .file-btn{position:relative; overflow:hidden;}
+  .file-btn input[type=file]{
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+  }
+
+  section{margin-bottom:38px;}
+  h2.section-title{
+    font-family:'Zilla Slab',serif;
+    font-size:1.2rem;
+    font-weight:600;
+    margin:0 0 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h2.section-title::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--rule);
+  }
+
+  /* ---------- Ledger table ---------- */
+  .ledger-scroll{overflow-x:auto; border:1px solid var(--rule); border-radius:4px; background:var(--paper-2); box-shadow:var(--card-shadow);}
+  table{border-collapse:collapse; width:100%; min-width:1080px; font-size:.82rem;}
+  thead th{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    text-align:right;
+    padding:9px 8px;
+    background:var(--ink);
+    color:var(--paper-2);
+    white-space:nowrap;
+    position:sticky; top:0;
+  }
+  thead th:first-child, tbody td:first-child{text-align:left; position:sticky; left:0; z-index:2;}
+  thead th:first-child{z-index:3;}
+  tbody td:first-child{background:var(--paper-2); font-weight:600;}
+  tbody td{
+    padding:6px 8px;
+    text-align:right;
+    border-bottom:1px solid var(--rule);
+    font-family:'IBM Plex Mono',monospace;
+    white-space:nowrap;
+  }
+  tbody tr:hover td{background:rgba(179,130,58,.08);}
+  tbody input{
+    width:96px;
+    text-align:right;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.82rem;
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--ink);
+    padding:3px 4px;
+    border-radius:2px;
+  }
+  tbody input:focus{
+    outline:none;
+    border-color:var(--gold);
+    background:#fff;
+  }
+  tbody input.infl-input{width:64px;}
+  td.computed{color:var(--ink-soft);}
+  td.total-col{font-weight:700; color:var(--ink);}
+  td.pos{color:var(--gain);}
+  td.neg{color:var(--stamp);}
+  td.empty-row td{color:#9aab93;}
+
+  .legend{
+    display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:.75rem; color:var(--ink-soft);
+  }
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .swatch{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  /* ---------- Inflation panel ---------- */
+  .infl-panel{
+    display:flex; flex-wrap:wrap; gap:20px; align-items:center;
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:4px;
+    padding:18px 20px; box-shadow:var(--card-shadow); position:relative; overflow:hidden;
+  }
+  .infl-panel .desc{flex:1; min-width:240px; font-size:.85rem; color:var(--ink-soft);}
+  .infl-panel .desc code{background:rgba(28,42,32,.07); padding:1px 5px; border-radius:3px; font-size:.78rem;}
+  .status-box{
+    font-size:.8rem; min-height:20px; display:flex; align-items:center; gap:8px;
+  }
+  .spinner{
+    width:14px;height:14px;border:2px solid var(--rule); border-top-color:var(--ink);
+    border-radius:50%; animation:spin .8s linear infinite; display:none;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .stamp{
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:.8rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    border:2.5px solid;
+    padding:4px 10px;
+    border-radius:5px;
+    transform:rotate(-6deg);
+    display:none;
+    opacity:0;
+  }
+  .stamp.show{display:inline-block; animation:stampIn .28s ease-out forwards;}
+  @keyframes stampIn{
+    0%{opacity:0; transform:rotate(-6deg) scale(1.6);}
+    60%{opacity:1; transform:rotate(-6deg) scale(.94);}
+    100%{opacity:1; transform:rotate(-6deg) scale(1);}
+  }
+  .stamp.ok{color:var(--gain); border-color:var(--gain);}
+  .stamp.err{color:var(--stamp); border-color:var(--stamp);}
+
+  /* ---------- Dashboard cards ---------- */
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px;}
+  .card{
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:4px;
+    padding:16px 18px; box-shadow:var(--card-shadow);
+  }
+  .card .label{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
+  .card .value{font-family:'IBM Plex Mono',monospace; font-size:1.5rem; font-weight:600;}
+  .card .value.pos{color:var(--gain);}
+  .card .value.neg{color:var(--stamp);}
+  .card .note{font-size:.72rem; color:var(--ink-soft); margin-top:4px;}
+
+  /* ---------- Charts ---------- */
+  .chart-grid{display:grid; grid-template-columns:1fr; gap:24px;}
+  @media(min-width:860px){.chart-grid{grid-template-columns:1fr 1fr;}}
+  .chart-card{
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:4px;
+    padding:18px; box-shadow:var(--card-shadow);
+  }
+  .chart-card h3{
+    font-family:'Zilla Slab',serif; font-size:1rem; margin:0 0 12px; font-weight:600;
+  }
+  canvas{max-height:280px;}
+
+  footer{
+    text-align:center; font-size:.75rem; color:var(--ink-soft); margin-top:40px; padding-top:16px;
+    border-top:1px solid var(--rule);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <h1>Libro de Sueldo</h1>
+      <div class="sub">Evolución mensual vs. inflación — legajos Sueldo (0,1,2) e Incentivo (0,1)</div>
+    </div>
+    <div class="meta">
+      <label for="yearInput">Año</label>
+      <input type="number" id="yearInput" value="2026">
+      <div class="actions">
+        <button id="exportBtn">Exportar respaldo</button>
+        <button class="file-btn">Importar
+          <input type="file" id="importInput" accept="application/json">
+        </button>
+        <button id="resetBtn">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2 class="section-title">Carga mensual</h2>
+    <div class="ledger-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th>Sueldo L0</th>
+            <th>Sueldo L1</th>
+            <th>Sueldo L2</th>
+            <th>Incentivo L0</th>
+            <th>Incentivo L1</th>
+            <th>Total</th>
+            <th>% var. mensual</th>
+            <th>Inflación %</th>
+            <th>Brecha</th>
+            <th>Sueldo real</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--gain)"></span>Ganó poder adquisitivo ese mes</span>
+      <span><span class="swatch" style="background:var(--stamp)"></span>Perdió poder adquisitivo ese mes</span>
+      <span>"Sueldo real" = total nominal ajustado por inflación acumulada, en pesos de Enero</span>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Inflación</h2>
+    <div class="infl-panel">
+      <div class="desc">
+        Trae el % de inflación mensual (INDEC) automáticamente desde
+        <code>api.argentinadatos.com</code> para el año seleccionado.
+        También podés escribir el valor a mano en la tabla si preferís otra fuente.
+      </div>
+      <button id="fetchInflBtn" class="primary">Traer datos reales (INDEC)</button>
+      <div class="status-box">
+        <div class="spinner" id="spinner"></div>
+        <span class="stamp ok" id="stampOk">Actualizado ✓</span>
+        <span class="stamp err" id="stampErr">Sin conexión</span>
+        <button id="retryBtn" style="display:none;">Reintentar</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Resumen</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Gráficos</h2>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Sueldo nominal vs. sueldo real</h3>
+        <canvas id="chartReal"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>% aumento salarial vs. % inflación (mensual)</h3>
+        <canvas id="chartCompare"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Los datos se guardan solo en este navegador (localStorage). Usá "Exportar respaldo" para guardar una copia.
+  </footer>
+</div>
+
+<script>
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const STORAGE_KEY = "libroSueldoData_v1";
+const FIELDS = ["s0","s1","s2","i0","i1"];
+
+const DEFAULT_DATA = [
+  {s0:788825.15, s1:724597.95, s2:169351.49, i0:37741.98, i1:37741.98, infl:null},
+  {s0:840421.36, s1:776227.68, s2:180500.74, i0:47239.95, i1:47235.95, infl:null},
+  {s0:831441.36, s1:776217.68, s2:180500.74, i0:47239.95, i1:47239.95, infl:null},
+  {s0:868403.35, s1:837275.58, s2:184982.01, i0:47239.95, i1:47239.95, infl:null},
+  {s0:868403.35, s1:837275.58, s2:184982.01, i0:56687.96, i1:56687.96, infl:null},
+  {s0:868403.35, s1:837275.58, s2:184982.01, i0:56687.96, i1:56687.96, infl:null},
+  {s0:null,s1:null,s2:null,i0:null,i1:null,infl:null},
+  {s0:null,s1:null,s2:null,i0:null,i1:null,infl:null},
+  {s0:null,s1:null,s2:null,i0:null,i1:null,infl:null},
+  {s0:null,s1:null,s2:null,i0:null,i1:null,infl:null},
+  {s0:null,s1:null,s2:null,i0:null,i1:null,infl:null},
+  {s0:null,s1:null,s2:null,i0:null,i1:null,infl:null},
+];
+
+function loadState(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){
+    try{ return JSON.parse(raw); }catch(e){ /* fall through */ }
+  }
+  return {year:2026, rows: JSON.parse(JSON.stringify(DEFAULT_DATA))};
+}
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadState();
+
+const fmtCur = n => n===null||n===undefined||isNaN(n) ? "—" :
+  n.toLocaleString("es-AR",{style:"currency",currency:"ARS",minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPct = n => n===null||n===undefined||isNaN(n) ? "—" : (n>=0?"+":"") + n.toFixed(2) + "%";
+
+function computeRows(){
+  const rows = state.rows;
+  let prevTotal = null, firstTotal = null, inflIndex = 1;
+  return rows.map((row,idx)=>{
+    const hasAll = FIELDS.every(f=>row[f] !== null && row[f] !== undefined && row[f] !== "");
+    let totalSueldo=null, totalIncentivo=null, total=null, varMensual=null, real=null, brecha=null;
+    if(hasAll){
+      totalSueldo = row.s0 + row.s1 + row.s2;
+      totalIncentivo = row.i0 + row.i1;
+      total = totalSueldo + totalIncentivo;
+      if(firstTotal===null) firstTotal = total;
+      if(prevTotal!==null) varMensual = (total-prevTotal)/prevTotal*100;
+      prevTotal = total;
+    }
+    let inflAcum = null;
+    if(hasAll){
+      const inflVal = (row.infl===null||row.infl===undefined||row.infl==="") ? 0 : Number(row.infl);
+      inflIndex *= (1+inflVal/100);
+      inflAcum = (inflIndex-1)*100;
+      real = total / inflIndex;
+      if(varMensual!==null && row.infl!==null && row.infl!==undefined && row.infl!==""){
+        brecha = varMensual - Number(row.infl);
+      }
+    }
+    return {mes:MESES[idx], hasAll, totalSueldo, totalIncentivo, total, varMensual, inflAcum, real, brecha, infl:row.infl};
+  });
+}
+
+function parseNum(str){
+  if(str===null||str===undefined) return null;
+  const s = String(str).trim().replace(",",".");
+  if(s==="") return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function displayNum(n){
+  return (n===null||n===undefined) ? "" : String(n).replace(".", ",");
+}
+
+let rowRefs = [];
+
+function buildTable(){
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+  rowRefs = [];
+  state.rows.forEach((row, idx)=>{
+    const tr = document.createElement("tr");
+
+    const mesTd = document.createElement("td");
+    mesTd.textContent = MESES[idx];
+    tr.appendChild(mesTd);
+
+    const fieldInputs = {};
+    FIELDS.forEach(f=>{
+      const td = document.createElement("td");
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.inputMode = "decimal";
+      inp.autocomplete = "off";
+      inp.value = displayNum(row[f]);
+      inp.addEventListener("input", e=>{
+        state.rows[idx][f] = parseNum(e.target.value);
+        saveState();
+        refreshComputed();
+      });
+      inp.addEventListener("blur", e=>{
+        e.target.value = displayNum(state.rows[idx][f]);
+      });
+      fieldInputs[f] = inp;
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+
+    const totalTd = document.createElement("td");
+    totalTd.className = "total-col";
+    tr.appendChild(totalTd);
+
+    const varTd = document.createElement("td");
+    tr.appendChild(varTd);
+
+    const inflTd = document.createElement("td");
+    const inflInp = document.createElement("input");
+    inflInp.type = "text";
+    inflInp.inputMode = "decimal";
+    inflInp.autocomplete = "off";
+    inflInp.className = "infl-input";
+    inflInp.placeholder = "%";
+    inflInp.value = displayNum(row.infl);
+    inflInp.addEventListener("input", e=>{
+      state.rows[idx].infl = parseNum(e.target.value);
+      saveState();
+      refreshComputed();
+    });
+    inflInp.addEventListener("blur", e=>{
+      e.target.value = displayNum(state.rows[idx].infl);
+    });
+    inflTd.appendChild(inflInp);
+    tr.appendChild(inflTd);
+
+    const brechaTd = document.createElement("td");
+    tr.appendChild(brechaTd);
+
+    const realTd = document.createElement("td");
+    realTd.className = "computed";
+    tr.appendChild(realTd);
+
+    tbody.appendChild(tr);
+    rowRefs.push({tr, totalTd, varTd, inflInp, brechaTd, realTd});
+  });
+
+  refreshComputed();
+}
+
+function refreshComputed(){
+  const rows = computeRows();
+  rows.forEach((computed, idx)=>{
+    const ref = rowRefs[idx];
+    ref.tr.classList.toggle("empty-row", !computed.hasAll);
+    ref.totalTd.textContent = fmtCur(computed.total);
+
+    ref.varTd.textContent = fmtPct(computed.varMensual);
+    ref.varTd.className = "computed" + (computed.varMensual>0?" pos":computed.varMensual<0?" neg":"");
+
+    ref.brechaTd.textContent = fmtPct(computed.brecha);
+    ref.brechaTd.className = "computed" + (computed.brecha>0?" pos":computed.brecha<0?" neg":"");
+
+    ref.realTd.textContent = fmtCur(computed.real);
+  });
+  renderCards();
+  renderCharts();
+}
+
+function renderCards(){
+  const rows = computeRows();
+  const withData = rows.filter(r=>r.hasAll);
+  const cards = document.getElementById("cards");
+  cards.innerHTML = "";
+  if(withData.length===0){
+    cards.innerHTML = '<div class="card"><div class="label">Sin datos</div><div class="value">—</div></div>';
+    return;
+  }
+  const last = withData[withData.length-1];
+  const first = withData[0];
+  const acumSalarial = (last.total-first.total)/first.total*100;
+  const items = [
+    {label:"Último total nominal", value:fmtCur(last.total)},
+    {label:"Último sueldo real (pesos de Enero)", value:fmtCur(last.real)},
+    {label:"Inflación acumulada", value: last.inflAcum!==null? fmtPct(last.inflAcum):"—"},
+    {label:"Variación salarial acumulada", value: fmtPct(acumSalarial), cls: acumSalarial>=0?"pos":"neg"},
+    {label:"Brecha del último mes", value: last.brecha!==null? fmtPct(last.brecha):"—", cls: last.brecha>0?"pos":last.brecha<0?"neg":""},
+  ];
+  items.forEach(it=>{
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `<div class="label">${it.label}</div><div class="value ${it.cls||""}">${it.value}</div>`;
+    cards.appendChild(div);
+  });
+}
+
+let chartReal, chartCompare;
+function renderCharts(){
+  const rows = computeRows();
+  const labels = rows.filter(r=>r.hasAll).map(r=>r.mes);
+  const totals = rows.filter(r=>r.hasAll).map(r=>r.total);
+  const reals = rows.filter(r=>r.hasAll).map(r=>r.real);
+  const varSal = rows.filter(r=>r.hasAll).map(r=>r.varMensual);
+  const infl = rows.filter(r=>r.hasAll).map(r=>r.infl===null||r.infl===undefined?null:Number(r.infl));
+
+  const ctx1 = document.getElementById("chartReal").getContext("2d");
+  const ctx2 = document.getElementById("chartCompare").getContext("2d");
+  if(chartReal) chartReal.destroy();
+  if(chartCompare) chartCompare.destroy();
+
+  const gridColor = "rgba(28,42,32,.12)";
+  const font = {family:"Inter"};
+
+  chartReal = new Chart(ctx1,{
+    type:"line",
+    data:{labels, datasets:[
+      {label:"Sueldo nominal", data:totals, borderColor:"#b3823a", backgroundColor:"#b3823a", tension:.25},
+      {label:"Sueldo real (ajustado)", data:reals, borderColor:"#2e6b4d", backgroundColor:"#2e6b4d", tension:.25}
+    ]},
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{font}}},
+      scales:{
+        x:{grid:{color:gridColor}, ticks:{font}},
+        y:{grid:{color:gridColor}, ticks:{font, callback:v=>"$"+Number(v).toLocaleString("es-AR")}}
+      }
+    }
+  });
+
+  chartCompare = new Chart(ctx2,{
+    type:"bar",
+    data:{labels, datasets:[
+      {label:"% aumento salarial", data:varSal, backgroundColor:"#1c2a20"},
+      {label:"% inflación", data:infl, backgroundColor:"#a5372a"}
+    ]},
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{font}}},
+      scales:{
+        x:{grid:{color:gridColor}, ticks:{font}},
+        y:{grid:{color:gridColor}, ticks:{font, callback:v=>v+"%"}}
+      }
+    }
+  });
+}
+
+// ---------- Inflation fetch ----------
+document.getElementById("fetchInflBtn").addEventListener("click", fetchInflation);
+document.getElementById("retryBtn").addEventListener("click", fetchInflation);
+
+async function fetchInflation(){
+  const spinner = document.getElementById("spinner");
+  const stampOk = document.getElementById("stampOk");
+  const stampErr = document.getElementById("stampErr");
+  const retryBtn = document.getElementById("retryBtn");
+  stampOk.classList.remove("show");
+  stampErr.classList.remove("show");
+  retryBtn.style.display = "none";
+  spinner.style.display = "inline-block";
+
+  const year = parseInt(document.getElementById("yearInput").value) || state.year;
+
+  try{
+    const res = await fetch("https://api.argentinadatos.com/v1/finanzas/indices/inflacion");
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const byMonth = {};
+    data.forEach(d=>{
+      const dt = new Date(d.fecha);
+      if(dt.getUTCFullYear() === year){
+        byMonth[dt.getUTCMonth()] = d.valor;
+      }
+    });
+    let updated = 0;
+    for(let i=0;i<12;i++){
+      if(byMonth[i] !== undefined){
+        state.rows[i].infl = byMonth[i];
+        rowRefs[i].inflInp.value = displayNum(byMonth[i]);
+        updated++;
+      }
+    }
+    state.year = year;
+    saveState();
+    refreshComputed();
+    spinner.style.display = "none";
+    if(updated>0){
+      stampOk.textContent = `Actualizado ✓ (${updated} meses, ${year})`;
+      stampOk.classList.add("show");
+    } else {
+      stampErr.textContent = `Sin datos para ${year}`;
+      stampErr.classList.add("show");
+      retryBtn.style.display = "inline-block";
+    }
+  }catch(err){
+    spinner.style.display = "none";
+    stampErr.textContent = "Sin conexión — no se pudo traer la inflación";
+    stampErr.classList.add("show");
+    retryBtn.style.display = "inline-block";
+  }
+}
+
+// ---------- Export / Import / Reset ----------
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `libro-sueldo-${state.year}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("importInput").addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const parsed = JSON.parse(ev.target.result);
+      if(parsed && Array.isArray(parsed.rows) && parsed.rows.length===12){
+        state = parsed;
+        document.getElementById("yearInput").value = state.year || 2026;
+        saveState();
+        buildTable();
+      }
+    }catch(err){
+      alert("No se pudo leer el archivo.");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  if(confirm("¿Reiniciar todos los datos cargados en este navegador?")){
+    state = {year:2026, rows: JSON.parse(JSON.stringify(DEFAULT_DATA))};
+    document.getElementById("yearInput").value = 2026;
+    saveState();
+    buildTable();
+  }
+});
+
+document.getElementById("yearInput").addEventListener("change", e=>{
+  state.year = parseInt(e.target.value) || 2026;
+  saveState();
+});
+
+// init
+document.getElementById("yearInput").value = state.year || 2026;
+buildTable();
+</script>
+</body>
+</html>
